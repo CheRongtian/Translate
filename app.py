@@ -59,6 +59,7 @@ if st.button("开始翻译"):
             "http://localhost:11434/api/generate",
             json={
                 "model": "qwen:7b",
+                # 以后想换模型就在这里改动
                 "prompt": f"请将以下文本翻译为中文，不要多余解释：\n{final_text_to_translate}",
                 "stream": False
             }
