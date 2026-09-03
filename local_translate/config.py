@@ -1,0 +1,4 @@
+OLLAMA_URL = "http://localhost:11434/api/generate"
+OLLAMA_MODEL = "qwen2.5:14b"
+OLLAMA_CONTEXT_TOKENS = 8192
+SOURCE_TOKEN_BUDGET = 3200

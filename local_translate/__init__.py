@@ -1,0 +1,1 @@
+"""Local Translate application package."""
