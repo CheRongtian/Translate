@@ -1,159 +1,125 @@
-# Local Translator
+# Local Translate
 
-基于 Streamlit、Ollama 和本地 Qwen 模型的文档翻译工具。用户可以直接跳过术语设置，也可以指定需要统一处理的词项，再进行结构化分段翻译。初稿完成后仍可补充术语和局部修订。
+本地文本翻译工具。程序自动识别源语言并翻译为简体中文，Vue 3 提供页面，FastAPI 提供本地接口，翻译与术语分析由本机 Ollama 完成。
 
-## 支持内容
+## 主要功能
 
-- 直接粘贴文本
-- TXT、PDF、DOCX
-- PNG、JPG、JPEG OCR
-- HTML 文本转段落
-- 长文档分段翻译
-- 用户可选指定术语译法
-- 术语保留原文
-- 术语表导入与导出
-- 译后新增术语
-- 局部重新翻译
-- 直接替换和撤销
+- 粘贴英文文本，或读取 TXT、PDF、DOCX、PNG、JPG、JPEG 文件。
+- 从上下文中分析人名、地名、机构名、产品名、型号、缩写和专业术语。
+- 指定译法留空时跳过该候选；填写后采用用户译法；也可以选择保留原文。
+- 用户确认的术语会传入每个翻译段落，并在结果生成后执行大小写敏感的完整词替换。
+- 翻译完成后可以增加术语并直接应用，也可以携带完整术语表重新翻译。
+- 翻译过程使用 token 级流式输出，译文会在生成时持续显示。
+- Ollama 模型在请求结束后保留 30 分钟，减少重复加载等待。
+- 支持 JSON 术语表导入、结果复制和 TXT 下载。
 
-## 环境要求
+## 模型配置
 
-- Python
-- Ollama
-- 本地模型：`qwen2.5:14b`
-- OCR 图片时需要 Tesseract 的英文和简体中文语言包
+- 模型：`qwen2.5:14b`
+- `temperature: 0`
+- `num_ctx: 8192`
+- Ollama 地址：`http://localhost:11434/api/generate`
 
-安装 Python 依赖：
+正文翻译提示词位于：
 
-```bash
-pip install -r requirements.txt
+```text
+local_translate/prompts/translation.md
 ```
 
-确认 Ollama 已准备好模型：
-
-```bash
-ollama pull qwen2.5:14b
-```
-
-启动页面：
-
-```bash
-streamlit run app.py
-```
-
-Ollama 地址固定为 `http://localhost:11434/api/generate`。
+程序会在每次翻译时读取该文件，修改提示词后无需修改 Python 代码。
 
 ## 项目结构
 
 ```text
 Local-Translate/
+├── .gitignore
 ├── app.py
-├── README.md
-├── requirements.txt
-└── local_translate/
-    ├── __init__.py
-    ├── config.py
-    ├── documents.py
-    ├── ollama_client.py
-    ├── state.py
-    ├── terminology.py
-    ├── text_processing.py
-    ├── translation.py
-    ├── ui.py
-    └── prompts/
-        └── translation.md
+├── Dockerfile
+├── backend/
+│   ├── api.py
+│   ├── schemas.py
+│   ├── services.py
+│   └── static.py
+├── frontend/
+│   ├── src/
+│   │   ├── api/
+│   │   ├── components/
+│   │   ├── App.vue
+│   │   ├── main.ts
+│   │   └── style.css
+│   ├── package.json
+│   └── vite.config.ts
+├── local_translate/
+│   ├── config.py
+│   ├── documents.py
+│   ├── ollama_client.py
+│   ├── terminology.py
+│   ├── text_processing.py
+│   ├── translation.py
+│   └── prompts/
+│       └── translation.md
+└── requirements.txt
 ```
 
-`app.py` 只保留页面入口。翻译规则位于
-`local_translate/prompts/translation.md`，修改该文件后，下一次翻译会直接读取新内容。
+## 首次安装
 
-## 使用流程
+安装 Python 依赖：
 
-### 1. 输入文档
+```bash
+cd /Users/cherongtian/Desktop/Projects/Local-Translate
+python3 -m pip install -r requirements.txt
+```
 
-上传文件或粘贴文本。程序会：
+安装并构建 Vue 前端：
 
-- 提取文件文字
-- 将 HTML 块级标签转换为段落
-- 保留标题、段落和列表边界
-- 按结构切分长文本
+```bash
+cd /Users/cherongtian/Desktop/Projects/Local-Translate/frontend
+npm install
+npm run build
+```
 
-### 2. 分析并设置词项
+准备 Ollama 模型：
 
-点击“分析术语”。程序生成“需要一致处理的词项”候选表，候选可能包括：
+```bash
+ollama pull qwen2.5:14b
+```
 
-- 人名、地名、机构名
-- 产品、项目和型号
-- 缩写及其全称
-- 专业术语
-- 存在多种译法的重复短语
+图片 OCR 还需要本机安装 Tesseract。
 
-程序首先要求模型返回结构化词项；返回格式无效或没有候选时，会自动使用逐行词项格式再分析一次。两次分析都失败时，页面持续显示具体错误。确实没有候选时，页面会明确提示，并允许用户手动新增词项或直接翻译。
+## 启动
 
-自动结果只提供候选。每一行都可以直接操作：
+```bash
+cd /Users/cherongtian/Desktop/Projects/Local-Translate
+python3 app.py
+```
 
-- “指定译法”留空且未勾选“保留原文”：跳过该候选
-- 在“指定译法”中填写内容：全文使用该译法
-- 勾选“保留原文”：全文保持原始写法，忽略指定译法
+服务启动后会自动打开：
 
-可以直接在表格中新增遗漏词项。设置完成后点击“使用以上设置开始翻译”，其他候选无需操作。
+```text
+http://localhost:8000
+```
 
-### 3. 翻译
+## Dockerfile
 
-程序根据 8K 上下文预算估算文本长度。能够容纳时整篇一次翻译；超出预算时按完整段落尽量合并为较少的翻译块。页面会在翻译前显示最终分段数量。
+Dockerfile 会先构建 Vue 页面，再将静态文件复制到 FastAPI 运行镜像。容器内默认通过 `host.docker.internal:11434` 访问宿主机 Ollama，并监听 `8000` 端口。
 
-用户填写或勾选的词项会作为统一规则发送给每个翻译块。全部翻译结束后，程序还会对完整结果执行一次大小写敏感的原词检查，将残留原词强制替换成指定译法。“保留原文”的词项不会被替换。
+## 导入术语表
 
-正文翻译和术语分析都使用 `temperature: 0`。正文翻译规则通过 Ollama 的 system prompt 发送。
-
-页面会显示当前处理的段落数量。所有段落通过检查后才显示“翻译完成”。
-
-以下情况按失败处理：
-
-- Ollama 请求失败
-- 返回内容为空
-- Ollama 因长度限制停止生成
-- 某个分段没有结果
-- 输出与原文几乎相同
-- 输出仍以英文为主
-- 输出长度或句子数量明显异常，疑似遗漏或总结
-- 输出包含模型额外添加的“源文本如下”等说明
-
-这些情况显示为翻译失败，用户可以重试对应段落。
-
-### 4. 翻译后补充词项
-
-如果初稿中发现词项翻译不准确，在“译后补充术语”区域填写原文词项和指定译法，也可以勾选“保留原文”。默认应用到全文并只重新翻译相关段落。
-
-高级设置中可以调整：
-
-- 应用范围：全文或本处
-- 修订方式
-
-修订方式包括：
-
-- **重新翻译受影响段落**：默认方式，只重新翻译原文中包含该词项的段落，并携带完整的已确认术语表
-- **直接替换现有译文**：需要同时填写当前错误译法，仅在选定范围内执行精确替换
-
-每次修订前都会保存当前结果，可以撤销上一次修订，也可以恢复最初生成的译文。
-
-## 术语表格式
-
-术语表使用 JSON 数组：
+可以导入数组，或带有 `terms` 数组的 JSON：
 
 ```json
-[
-  {
-    "source": "Large Language Model",
-    "final": "大语言模型",
-    "preserve": false
-  },
-  {
-    "source": "LLM",
-    "final": "",
-    "preserve": true
-  }
-]
+{
+  "terms": [
+    {
+      "source": "Chojuro",
+      "translation": "长十郎",
+      "preserve": false
+    },
+    {
+      "source": "CUDA",
+      "translation": "",
+      "preserve": true
+    }
+  ]
+}
 ```
-
-导入术语表后仍可以在页面中修改；留空项同样会直接跳过。
